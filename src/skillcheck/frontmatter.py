@@ -17,12 +17,12 @@ def parse(text: str) -> tuple[dict[str, Any], str]:
     The frontmatter is the YAML between the opening ``---`` line and the next
     ``---`` line. Everything after the closing line is the body.
     """
-    lines = text.splitlines()
-    if not lines or lines[0].strip() != "---":
+    lines = text.removeprefix("\ufeff").splitlines()
+    if not lines or lines[0].rstrip() != "---":
         raise FrontmatterError("file must start with a '---' frontmatter line")
 
     for index, line in enumerate(lines[1:], start=1):
-        if line.strip() == "---":
+        if line.rstrip() == "---":
             closing = index
             break
     else:

@@ -221,3 +221,71 @@ def test_cli_passes_and_fails(tmp_path: Path, capsys: Capture) -> None:
 def test_cli_reports_missing_path(tmp_path: Path, capsys: Capture) -> None:
     assert main([str(tmp_path / "nope.md")]) == 1
     assert "does not exist" in capsys.readouterr().out
+
+
+# --- regressions ---------------------------------------------------------
+
+
+def test_indented_frontmatter_is_rejected(tmp_path: Path) -> None:
+    indented = "".join(f"   {line}\n" for line in GOOD_SKILL.splitlines())
+    path = write_skill(tmp_path, "weekly-report", indented)
+    [finding] = check_skill(path)
+    assert "must start with a '---'" in finding.message
+
+
+def test_byte_order_mark_and_trailing_spaces_are_accepted(tmp_path: Path) -> None:
+    text = "﻿" + GOOD_SKILL.replace("---\n", "---  \n")
+    path = write_skill(tmp_path, "weekly-report", text)
+    assert check_skill(path) == []
+
+
+def test_lowercase_file_name_is_caught_through_the_folder(tmp_path: Path) -> None:
+    path = tmp_path / "weekly-report" / "skill.md"
+    path.parent.mkdir()
+    path.write_text(GOOD_SKILL, encoding="utf-8")
+    [finding] = check_path(path.parent)
+    assert "exactly SKILL.md" in finding.message
+
+
+def test_non_string_description(tmp_path: Path) -> None:
+    text = "---\nname: weekly-report\ndescription: 42\n---\nBody.\n"
+    path = write_skill(tmp_path, "weekly-report", text)
+    [finding] = check_skill(path)
+    assert "non-empty string" in finding.message
+
+
+def test_unreadable_files_give_findings_not_tracebacks(tmp_path: Path) -> None:
+    binary = tmp_path / "weekly-report" / "SKILL.md"
+    binary.parent.mkdir()
+    binary.write_bytes(b"\xff\xfe\x00bad")
+    [finding] = check_skill(binary)
+    assert "UTF-8" in finding.message
+
+    folder_named_like_a_file = tmp_path / "other" / "agent.md"
+    folder_named_like_a_file.mkdir(parents=True)
+    [finding] = check_agent(folder_named_like_a_file, skills_dirs=[])
+    assert "folder" in finding.message
+
+
+def test_personal_agent_searches_each_folder_once(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(Path, "home", lambda: tmp_path)
+    agent = tmp_path / ".claude" / "agents" / "report-writer.md"
+    agent.parent.mkdir(parents=True)
+    agent.write_text(GOOD_AGENT, encoding="utf-8")
+    [finding] = check_agent(agent)
+    assert finding.message.count(".claude/skills") == 1
+
+
+def test_cli_counts_warnings(tmp_path: Path, capsys: Capture) -> None:
+    text = "---\nname: weekly-report\ndescription: Writes reports.\n---\nBody.\n"
+    folder = write_skill(tmp_path, "weekly-report", text).parent
+    assert main([str(folder)]) == 0
+    assert capsys.readouterr().out.splitlines()[-1] == f"PASS: {folder} (1 warning)"
+
+
+def test_cli_expands_skills_dir(tmp_path: Path, capsys: Capture) -> None:
+    agent = make_project(tmp_path)
+    assert main([str(agent), "--skills-dir", str(tmp_path / ".claude" / "skills")]) == 0
+    assert capsys.readouterr().out.strip() == f"PASS: {agent}"

@@ -80,8 +80,17 @@ files, write files, or run commands.
   same checklist, severity order, and verdict as exercise 5.
 - Your main conversation shows the request and the returned review. It does
   not show every file read and search the subagent made along the way.
-- Ask the subagent to fix the issues it found. It cannot. Its tools do not
-  include Edit or Write.
+- Test the restriction by asking the subagent itself to make a change:
+
+  ```
+  Use the model-eval-reviewer subagent to apply the fixes to src/failure_model/evaluate.py
+  ```
+
+  The subagent reports that it cannot, because it has no Edit or Write tool.
+  Claude, in your main conversation, may then offer to make the edits itself.
+  Decline: the main conversation is not restricted, and the sample must keep
+  its mistakes. If the file does get changed, restore it with
+  `git checkout -- src/failure_model/evaluate.py`.
 
 ## What to look for
 

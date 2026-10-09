@@ -38,11 +38,16 @@ before you read on. Then compare with this list:
    dominated by the machines that do not fail. It says nothing about how many
    failures the model catches. This matches checklist item 2.
 3. **There is no baseline.** A "model" that always predicts *no failure* is
-   right about 96% of the time on this data. Run
-   `pytest tests/test_data.py -k no_failure` to see that test. Without that
-   comparison, 0.97 sounds impressive when it is barely better than doing
-   nothing. Measured with recall, this model catches well under half of the
-   machines that actually fail. This matches checklist item 3.
+   right about 96% of the time on this data. Check it yourself:
+
+   ```bash
+   python -c "from failure_model.data import load_sensor_log; _, y = load_sensor_log(); print(f'{1 - y.mean():.3f}')"
+   ```
+
+   It prints `0.956`. Without that comparison, 0.97 sounds impressive when it
+   is barely better than doing nothing. Measured with recall, this model
+   usually catches only about a third of the machines that actually fail.
+   This matches checklist item 3.
 4. **Nothing is seeded.** Neither `train_test_split` nor
    `RandomForestClassifier` has a `random_state`, so the threshold and
    accuracy change from run to run. You may have seen this in exercise 1.

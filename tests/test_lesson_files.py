@@ -62,19 +62,27 @@ def test_exercise_agent_is_valid(skill_file: Path, tmp_path: Path) -> None:
 
 COMMITTED_SKILLS = sorted((ROOT / ".claude" / "skills").glob("*/SKILL.md"))
 COMMITTED_AGENTS = sorted((ROOT / ".claude" / "agents").glob("*.md"))
+SKILL_IDS = [path.parent.name for path in COMMITTED_SKILLS]
+AGENT_IDS = [path.stem for path in COMMITTED_AGENTS]
+ON_MAIN = "the finished skill and subagent exist only on the solution branch"
+needs_skill = pytest.mark.skipif(not COMMITTED_SKILLS, reason=ON_MAIN)
+needs_agent = pytest.mark.skipif(not COMMITTED_AGENTS, reason=ON_MAIN)
 
 
-@pytest.mark.parametrize("path", COMMITTED_SKILLS, ids=lambda p: p.parent.name)
+@needs_skill
+@pytest.mark.parametrize("path", COMMITTED_SKILLS, ids=SKILL_IDS)
 def test_committed_skill_is_valid(path: Path) -> None:
     assert check_skill(path) == []
 
 
-@pytest.mark.parametrize("path", COMMITTED_AGENTS, ids=lambda p: p.stem)
+@needs_agent
+@pytest.mark.parametrize("path", COMMITTED_AGENTS, ids=AGENT_IDS)
 def test_committed_agent_is_valid(path: Path) -> None:
     assert check_agent(path, skills_dirs=[ROOT / ".claude" / "skills"]) == []
 
 
-@pytest.mark.parametrize("path", COMMITTED_SKILLS, ids=lambda p: p.parent.name)
+@needs_skill
+@pytest.mark.parametrize("path", COMMITTED_SKILLS, ids=SKILL_IDS)
 def test_committed_skill_matches_the_exercises(path: Path) -> None:
     committed, committed_body = parse(path.read_text(encoding="utf-8"))
     expected, expected_body = parse(markdown_block("06-pre-approve-read-only-tools.md"))

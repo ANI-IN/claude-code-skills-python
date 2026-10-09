@@ -1,7 +1,8 @@
 """Guard the lesson: fail if the planted mistakes in evaluate.py are fixed.
 
 The review exercises need something real to find. If one of these tests
-fails, the sample was changed. Restore it with ``git checkout -- src``.
+fails, the sample was changed. Restore it with
+``git checkout -- src/failure_model/evaluate.py``.
 """
 
 from __future__ import annotations

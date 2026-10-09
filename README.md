@@ -73,6 +73,12 @@ the planted mistakes are removed, so the lesson cannot be broken by accident.
 | `main` | The starting point. No skill or subagent is included. Do the exercises here. |
 | `solution/model-eval-review` | The finished result: the skill in `.claude/skills/model-eval-review/` and the subagent in `.claude/agents/model-eval-reviewer.md`, committed at project level. Compare against it after you finish. |
 
+If you check out the solution branch while your personal skill from the
+exercises is still installed, Claude Code uses the personal one, because
+personal skills take priority over project skills with the same name. Remove
+`~/.claude/skills/model-eval-review` first if you want to try the committed
+version.
+
 ## 4. Prerequisites
 
 - Python 3.10 or newer. Check with `python3 --version`. If your `python3` is
@@ -109,9 +115,9 @@ It also puts the `skillcheck` command on your path.
 | Run the sample evaluation | `python -m failure_model.evaluate` |
 | Check a skill or subagent file | `skillcheck PATH [PATH ...]` |
 
-On `main`, `pytest` reports `42 passed, 3 skipped`. The three skipped tests
+On `main`, `pytest` reports `50 passed, 3 skipped`. The three skipped tests
 check the committed skill and subagent files, which exist only on the solution
-branch, where all 45 run and pass.
+branch, where all 53 run and pass.
 
 ## 7. Project Structure
 
@@ -214,8 +220,9 @@ numbered files in order:
 6. Pre-approve read-only tools (optional).
 7. Delegate to a read-only subagent.
 
-Each guide states what to do, what to observe, what to look for, and the
-learning outcome. Every prompt is quoted exactly so you can copy it.
+Each guide states what to do and the learning outcome, and most also cover
+what to observe and what to look for. Every prompt is quoted exactly so you
+can copy it.
 
 ## 10. Additional Notes
 

@@ -10,8 +10,8 @@ hand the same review to a read-only subagent.
 
 1. Work through the files in numerical order, starting with
    `01-prerequisites.md`.
-2. Each guide tells you what to do, what to observe, what to look for, and
-   what the step teaches.
+2. Each guide tells you what to do and what the step teaches, and most also
+   cover what to observe and what to look for.
 3. Run every command and prompt exactly as written. Prompts you type into
    Claude Code are in fenced blocks so you can copy them.
 4. When a guide points you at the sample code, read it closely. Its mistakes

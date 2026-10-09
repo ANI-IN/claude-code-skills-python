@@ -48,9 +48,13 @@ def check_path(path: Path, skills_dirs: list[Path] | None = None) -> list[Findin
 def check_skill(path: Path) -> list[Finding]:
     """Check one ``SKILL.md`` file and the folder that holds it."""
     folder = path.parent
-    if not path.exists():
+    # On case-insensitive file systems (macOS, Windows) "SKILL.md" also finds
+    # "skill.md", so compare against the name actually stored on disk.
+    actual = _stored_name(path)
+    if actual is None:
         return [Finding(folder, "error", "folder has no SKILL.md file")]
-    if path.name != "SKILL.md":
+    if actual != "SKILL.md":
+        path = folder / actual
         return [
             Finding(
                 path, "error", f"file must be named exactly SKILL.md, not {path.name}"
@@ -65,11 +69,11 @@ def check_skill(path: Path) -> list[Finding]:
             )
         ]
 
-    text = path.read_text(encoding="utf-8")
     try:
+        text = _read(path)
         fields, body = parse(text)
-    except FrontmatterError as exc:
-        return [Finding(path, "error", str(exc))]
+    except (OSError, UnicodeDecodeError, FrontmatterError) as exc:
+        return [Finding(path, "error", _describe(exc))]
 
     findings = _check_name(path, fields)
     name = fields.get("name")
@@ -113,9 +117,9 @@ def check_agent(path: Path, skills_dirs: list[Path] | None = None) -> list[Findi
         return [Finding(path, "error", "subagent files must use the .md extension")]
 
     try:
-        fields, body = parse(path.read_text(encoding="utf-8"))
-    except FrontmatterError as exc:
-        return [Finding(path, "error", str(exc))]
+        fields, body = parse(_read(path))
+    except (OSError, UnicodeDecodeError, FrontmatterError) as exc:
+        return [Finding(path, "error", _describe(exc))]
 
     findings = _check_name(path, fields)
     findings += _check_description(path, fields, limit=None)
@@ -165,8 +169,10 @@ def _check_description(
     path: Path, fields: dict[str, Any], limit: int | None
 ) -> list[Finding]:
     description = fields.get("description")
-    if not isinstance(description, str) or not description.strip():
+    if description is None:
         return [Finding(path, "error", "missing required field 'description'")]
+    if not isinstance(description, str) or not description.strip():
+        return [Finding(path, "error", "'description' must be a non-empty string")]
     if limit is not None and len(description) > limit:
         return [
             Finding(
@@ -215,4 +221,37 @@ def _default_skills_dirs(agent_path: Path) -> list[Path]:
     folders = [Path.home() / ".claude" / "skills"]
     if agent_path.parent.name == "agents":
         folders.insert(0, agent_path.parent.parent / "skills")
-    return folders
+    unique: dict[Path, Path] = {}
+    for folder in folders:
+        unique.setdefault(folder.resolve(), folder)
+    return list(unique.values())
+
+
+def _stored_name(path: Path) -> str | None:
+    """Return the file name as stored on disk, matching case if possible.
+
+    Returns ``None`` when no entry in the folder matches, ignoring case.
+    """
+    if not path.parent.is_dir():
+        return None
+    names = [entry.name for entry in path.parent.iterdir()]
+    if path.name in names:
+        return path.name
+    wanted = path.name.lower()
+    return next((name for name in names if name.lower() == wanted), None)
+
+
+def _read(path: Path) -> str:
+    return path.read_text(encoding="utf-8")
+
+
+def _describe(exc: Exception) -> str:
+    if isinstance(exc, FrontmatterError):
+        return str(exc)
+    if isinstance(exc, UnicodeDecodeError):
+        return "file is not valid UTF-8 text"
+    if isinstance(exc, IsADirectoryError):
+        return "expected a file but found a folder"
+    if isinstance(exc, OSError) and exc.strerror:
+        return f"cannot read file: {exc.strerror}"
+    return f"cannot read file: {exc}"

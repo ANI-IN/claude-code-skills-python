@@ -22,12 +22,13 @@ Review the model evaluation in src/failure_model/evaluate.py
   Claude Code may ask you to approve it first.
 - Once loaded, Claude follows the checklist and groups its findings by
   severity, highest first. Expect it to flag the threshold chosen on the test
-  set and the accuracy-only reporting as High, the missing baseline, and the
-  unseeded split and model. Each finding has a file and line and a
-  recommended fix, and the review ends with a one-line verdict such as
-  "Blockers found: 2 High-severity issues".
-- The exact wording and severities vary between runs. The structure does
-  not.
+  set, the accuracy-only reporting, and the missing baseline, usually as
+  High, and the unseeded split and model, usually as Medium. Each finding has
+  a file and line and a recommended fix, and the review ends with a one-line
+  verdict such as "Blockers found: 3 High-severity issues".
+- The exact wording and severities vary between runs, and Claude may add a
+  related observation that is not on the checklist, such as a split that is
+  not stratified. The structure does not vary.
 
 ## What to look for
 
