@@ -115,9 +115,9 @@ It also puts the `skillcheck` command on your path.
 | Run the sample evaluation | `python -m failure_model.evaluate` |
 | Check a skill or subagent file | `skillcheck PATH [PATH ...]` |
 
-On `main`, `pytest` reports `50 passed, 3 skipped`. The three skipped tests
+On `main`, `pytest` reports `59 passed, 3 skipped`. The three skipped tests
 check the committed skill and subagent files, which exist only on the solution
-branch, where all 53 run and pass.
+branch, where all 62 run and pass.
 
 ## 7. Project Structure
 
@@ -182,7 +182,7 @@ What skills do you have available?
 ```
 
 `model-eval-review` should be listed. If `~/.claude/skills` did not exist when
-the session started, run `/reload-skills` first. See
+the session started, restart Claude Code first. See
 [exercise 3](exercises/03-load-and-verify.md).
 
 ### Demo A: run the review inline

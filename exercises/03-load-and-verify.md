@@ -13,9 +13,11 @@ Confirm that Claude Code has discovered the skill you just wrote.
    ```
 
    If Claude Code was already running when you created `~/.claude/skills` for
-   the first time, run `/reload-skills` or restart it. Claude Code watches
-   skill folders that existed when the session started, so edits to an
-   existing skill are picked up without a restart.
+   the first time, restart it. Claude Code watches the skill folders that
+   existed when the session started, so after a restart, edits to your skill
+   are picked up automatically. `/reload-skills` also loads a new folder, but
+   it does not start watching it, so you would have to run it again after
+   every later edit.
 
 2. Ask:
 
@@ -36,7 +38,7 @@ Confirm that Claude Code has discovered the skill you just wrote.
 - The file must be named exactly `SKILL.md`, with uppercase "SKILL" and
   lowercase "md", and it must sit inside a named folder rather than loose in
   `skills/`.
-- Run `/reload-skills`, or restart Claude Code.
+- Restart Claude Code, or run `/reload-skills`.
 
 ## Learning outcome
 

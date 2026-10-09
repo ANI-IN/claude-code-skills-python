@@ -57,7 +57,8 @@ files, write files, or run commands.
    Markdown file with frontmatter on top and the subagent's system prompt
    below.
 
-3. Check it. `skillcheck` also confirms that the skill it lists exists:
+3. Check it. `skillcheck` also warns if it cannot find the skill the
+   subagent lists:
 
    ```bash
    skillcheck ~/.claude/agents/model-eval-reviewer.md

@@ -8,6 +8,7 @@ field, or a name that does not match its folder.
 
 from __future__ import annotations
 
+import os
 import re
 from dataclasses import dataclass
 from pathlib import Path
@@ -36,7 +37,10 @@ class Finding:
 
 def check_path(path: Path, skills_dirs: list[Path] | None = None) -> list[Finding]:
     """Check a skill folder, a ``SKILL.md`` file, or a subagent ``.md`` file."""
-    if path.is_dir():
+    # Absolute, so "." and ".." have real folder names. Symlinks are kept as
+    # they are, because the folder name is what Claude Code sees.
+    path = Path(os.path.abspath(path))
+    if path.is_dir() and path.name.lower() != "skill.md":
         return check_skill(path / "SKILL.md")
     if not path.exists():
         return [Finding(path, "error", "path does not exist")]
@@ -47,10 +51,14 @@ def check_path(path: Path, skills_dirs: list[Path] | None = None) -> list[Findin
 
 def check_skill(path: Path) -> list[Finding]:
     """Check one ``SKILL.md`` file and the folder that holds it."""
+    path = Path(os.path.abspath(path))
     folder = path.parent
     # On case-insensitive file systems (macOS, Windows) "SKILL.md" also finds
     # "skill.md", so compare against the name actually stored on disk.
-    actual = _stored_name(path)
+    try:
+        actual = _stored_name(path)
+    except OSError as exc:
+        return [Finding(folder, "error", f"cannot read folder: {_reason(exc)}")]
     if actual is None:
         return [Finding(folder, "error", "folder has no SKILL.md file")]
     if actual != "SKILL.md":
@@ -60,7 +68,7 @@ def check_skill(path: Path) -> list[Finding]:
                 path, "error", f"file must be named exactly SKILL.md, not {path.name}"
             )
         ]
-    if folder.name == "skills":
+    if folder.name == "skills" and folder.parent.name == ".claude":
         return [
             Finding(
                 path,
@@ -69,6 +77,8 @@ def check_skill(path: Path) -> list[Finding]:
             )
         ]
 
+    if path.is_dir():
+        return [Finding(path, "error", "expected a file but found a folder")]
     try:
         text = _read(path)
         fields, body = parse(text)
@@ -113,8 +123,11 @@ def check_agent(path: Path, skills_dirs: list[Path] | None = None) -> list[Findi
     When none are given, the project's ``.claude/skills`` next to the agents
     folder and the personal ``~/.claude/skills`` are searched.
     """
+    path = Path(os.path.abspath(path))
     if path.suffix != ".md":
         return [Finding(path, "error", "subagent files must use the .md extension")]
+    if path.is_dir():
+        return [Finding(path, "error", "expected a file but found a folder")]
 
     try:
         fields, body = parse(_read(path))
@@ -130,9 +143,13 @@ def check_agent(path: Path, skills_dirs: list[Path] | None = None) -> list[Findi
         findings.append(_list_type_error(path, "skills"))
         skills = []
 
-    search = skills_dirs if skills_dirs is not None else _default_skills_dirs(path)
+    search = _unique(skills_dirs if skills_dirs is not None else _default_dirs(path))
     for skill in skills:
-        if not any((folder / skill / "SKILL.md").is_file() for folder in search):
+        if not NAME_PATTERN.fullmatch(skill):
+            findings.append(
+                Finding(path, "error", f"skills entry {skill!r} is not a valid name")
+            )
+        elif not any(_has_skill(folder, skill) for folder in search):
             where = ", ".join(str(folder) for folder in search) or "no folders"
             findings.append(
                 Finding(path, "warning", f"skill '{skill}' not found in {where}")
@@ -149,7 +166,16 @@ def _check_name(path: Path, fields: dict[str, Any]) -> list[Finding]:
     name = fields.get("name")
     if name is None:
         return [Finding(path, "error", "missing required field 'name'")]
-    if not isinstance(name, str) or not NAME_PATTERN.fullmatch(name):
+    if not isinstance(name, str):
+        return [
+            Finding(
+                path,
+                "error",
+                f"name {name!r} must be text; put it in quotes if YAML reads it "
+                "as a number or true/false",
+            )
+        ]
+    if not NAME_PATTERN.fullmatch(name):
         return [
             Finding(
                 path,
@@ -181,7 +207,11 @@ def _check_description(
                 f"description is {len(description)} characters; the limit is {limit}",
             )
         ]
-    if not any(hint in description.lower() for hint in TRIGGER_HINTS):
+    when_to_use = fields.get("when_to_use")
+    trigger_text = description.lower()
+    if isinstance(when_to_use, str):
+        trigger_text += " " + when_to_use.lower()
+    if not any(hint in trigger_text for hint in TRIGGER_HINTS):
         return [
             Finding(
                 path,
@@ -217,14 +247,29 @@ def _as_list(value: Any) -> list[str] | None:
     return None
 
 
-def _default_skills_dirs(agent_path: Path) -> list[Path]:
+def _default_dirs(agent_path: Path) -> list[Path]:
     folders = [Path.home() / ".claude" / "skills"]
     if agent_path.parent.name == "agents":
         folders.insert(0, agent_path.parent.parent / "skills")
+    return folders
+
+
+def _unique(folders: list[Path]) -> list[Path]:
     unique: dict[Path, Path] = {}
     for folder in folders:
         unique.setdefault(folder.resolve(), folder)
     return list(unique.values())
+
+
+def _has_skill(folder: Path, name: str) -> bool:
+    """True if ``folder/name/SKILL.md`` exists with exactly that spelling."""
+    try:
+        return (
+            _stored_name(folder / name) == name
+            and _stored_name(folder / name / "SKILL.md") == "SKILL.md"
+        )
+    except OSError:
+        return False
 
 
 def _stored_name(path: Path) -> str | None:
@@ -252,6 +297,10 @@ def _describe(exc: Exception) -> str:
         return "file is not valid UTF-8 text"
     if isinstance(exc, IsADirectoryError):
         return "expected a file but found a folder"
+    return f"cannot read file: {_reason(exc)}"
+
+
+def _reason(exc: Exception) -> str:
     if isinstance(exc, OSError) and exc.strerror:
-        return f"cannot read file: {exc.strerror}"
-    return f"cannot read file: {exc}"
+        return exc.strerror
+    return str(exc)

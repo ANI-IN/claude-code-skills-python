@@ -21,7 +21,9 @@ does not do.
    ---
    ```
 
-2. Check it, then run the review from exercise 5 again:
+2. Check it, then run the review from exercise 5 again. If you used
+   `/reload-skills` instead of restarting in exercise 3, run it again first
+   so Claude Code sees the change:
 
    ```bash
    skillcheck ~/.claude/skills/model-eval-review

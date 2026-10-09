@@ -59,7 +59,7 @@ run the review.
 | Skill not listed | Run `skillcheck` on the folder. The file must be named exactly `SKILL.md` and sit inside a named folder, not loose in `skills/`. |
 | Skill does not activate | The `description` does not overlap with how you phrased the request. Add the words you actually use. |
 | Wrong skill activates | Two descriptions are too similar. Make them more distinct. |
-| Changes not taking effect | Run `/reload-skills`, or restart Claude Code. A skills folder created after the session started is not watched until you do. |
+| Changes not taking effect | Restart Claude Code. A skills folder created after the session started is only watched after a restart. `/reload-skills` picks up the current version, but you must run it again after each later edit. |
 | Subagent not found | Run `skillcheck` on the agent file. If `~/.claude/agents` did not exist when the session started, restart Claude Code. |
 | `test_teaching_sample.py` fails | The sample was changed. Restore it with `git checkout -- src/failure_model/evaluate.py`. |
 

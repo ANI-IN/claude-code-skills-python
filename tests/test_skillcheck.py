@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import os
+import sys
 from pathlib import Path
 
 import pytest
@@ -89,7 +91,7 @@ def test_wrong_file_name_case(tmp_path: Path) -> None:
 
 
 def test_skill_loose_in_skills_root(tmp_path: Path) -> None:
-    path = write_skill(tmp_path, "skills", GOOD_SKILL)
+    path = write_skill(tmp_path / ".claude", "skills", GOOD_SKILL)
     [finding] = check_skill(path)
     assert "named folder" in finding.message
 
@@ -275,7 +277,7 @@ def test_personal_agent_searches_each_folder_once(
     agent.parent.mkdir(parents=True)
     agent.write_text(GOOD_AGENT, encoding="utf-8")
     [finding] = check_agent(agent)
-    assert finding.message.count(".claude/skills") == 1
+    assert finding.message.count(str(Path(".claude") / "skills")) == 1
 
 
 def test_cli_counts_warnings(tmp_path: Path, capsys: Capture) -> None:
@@ -289,3 +291,82 @@ def test_cli_expands_skills_dir(tmp_path: Path, capsys: Capture) -> None:
     agent = make_project(tmp_path)
     assert main([str(agent), "--skills-dir", str(tmp_path / ".claude" / "skills")]) == 0
     assert capsys.readouterr().out.strip() == f"PASS: {agent}"
+
+
+def test_relative_paths_use_the_real_folder_name(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    folder = write_skill(tmp_path, "weekly-report", GOOD_SKILL).parent
+    monkeypatch.chdir(folder)
+    assert check_path(Path(".")) == []
+    assert check_path(Path("SKILL.md")) == []
+    monkeypatch.chdir(folder / "..")
+    assert check_path(Path("weekly-report")) == []
+
+
+@pytest.mark.skipif(
+    sys.platform == "win32" or (hasattr(os, "geteuid") and os.geteuid() == 0),
+    reason="needs POSIX permissions and a non-root user",
+)
+def test_unreadable_folders_give_findings_not_tracebacks(tmp_path: Path) -> None:
+    agent = make_project(tmp_path)
+    skill_folder = tmp_path / ".claude" / "skills" / "weekly-report"
+    skills_root = skill_folder.parent
+    skill_folder.chmod(0)
+    try:
+        [finding] = check_path(skill_folder)
+        assert "cannot read folder" in finding.message
+    finally:
+        skill_folder.chmod(0o755)
+    skills_root.chmod(0)
+    try:
+        [finding] = check_agent(agent, skills_dirs=[skills_root])
+        assert finding.level == "warning"
+    finally:
+        skills_root.chmod(0o755)
+
+
+def test_duplicate_keys_are_rejected(tmp_path: Path) -> None:
+    text = GOOD_SKILL.replace("---\nSummarize", "description: Again.\n---\nSummarize")
+    path = write_skill(tmp_path, "weekly-report", text)
+    [finding] = check_skill(path)
+    assert "more than once" in finding.message
+
+
+def test_name_that_yaml_reads_as_a_number(tmp_path: Path) -> None:
+    text = GOOD_SKILL.replace("name: weekly-report", "name: 123")
+    path = write_skill(tmp_path, "123", text)
+    [finding] = check_skill(path)
+    assert "must be text" in finding.message
+
+
+def test_when_to_use_counts_as_a_trigger(tmp_path: Path) -> None:
+    text = (
+        "---\nname: weekly-report\ndescription: Writes reports.\n"
+        "when_to_use: Use when the user asks for the weekly report.\n---\nBody.\n"
+    )
+    path = write_skill(tmp_path, "weekly-report", text)
+    assert check_skill(path) == []
+
+
+def test_skill_named_skills_is_allowed(tmp_path: Path) -> None:
+    text = GOOD_SKILL.replace("name: weekly-report", "name: skills")
+    path = write_skill(tmp_path / ".claude" / "skills", "skills", text)
+    assert check_skill(path) == []
+
+
+@pytest.mark.parametrize("entry", ["Weekly-Report", "weekly-report/"])
+def test_agent_skill_entries_must_be_valid_names(tmp_path: Path, entry: str) -> None:
+    agent = make_project(tmp_path)
+    agent.write_text(GOOD_AGENT.replace("skills: weekly-report", f"skills: {entry}"))
+    [finding] = check_agent(agent, skills_dirs=[tmp_path / ".claude" / "skills"])
+    assert finding.level == "error" and "not a valid name" in finding.message
+
+
+def test_agent_skill_lookup_is_case_sensitive(tmp_path: Path) -> None:
+    skills = tmp_path / "skills"
+    write_skill(skills, "Weekly-Report", GOOD_SKILL)
+    agent = tmp_path / "report-writer.md"
+    agent.write_text(GOOD_AGENT, encoding="utf-8")
+    [finding] = check_agent(agent, skills_dirs=[skills])
+    assert finding.level == "warning" and "not found" in finding.message
